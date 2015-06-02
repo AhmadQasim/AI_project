@@ -3,7 +3,6 @@ from numpy import zeros, histogram, hstack, vstack, savetxt
 import scipy.cluster.vq as vq
 import svmutil
 from cPickle import load
-import libsvm
 
 HISTOGRAMS_FILE = 'testdata.svm'
 CODEBOOK_FILE = 'dataset_tinycodebook.file'
@@ -19,7 +18,7 @@ def extractSift(input_file):
     kp, descriptors = sift.detectAndCompute(gray,None)
     print "gathering sift features for", input_file,
     print descriptors.shape
-    all_features_dict[input_file  ] = descriptors
+    all_features_dict[input_file] = descriptors
     return all_features_dict
     
 def computeHistograms(codebook, descriptors):
@@ -31,15 +30,13 @@ def computeHistograms(codebook, descriptors):
     
 def writeHistogramsToFile(nwords, labels, fnames, all_word_histgrams, features_fname):
     data_rows = zeros(nwords + 1)  # +1 for the category label
-    print fnames
-    for fname in fnames:
-        histogram = all_word_histgrams
-        if (histogram.shape[0] != nwords):  # scipy deletes empty clusters
-            nwords = histogram.shape[0]
-            data_rows = zeros(nwords + 1)
-            print 'nclusters have been reduced to ' + str(nwords)
-        data_row = hstack((labels[fname], histogram))
-        data_rows = vstack((data_rows, data_row))
+    histogram = all_word_histgrams
+    if (histogram.shape[0] != nwords):  # scipy deletes empty clusters
+        nwords = histogram.shape[0]
+        data_rows = zeros(nwords + 1)
+        print 'nclusters have been reduced to ' + str(nwords)
+    data_row = hstack((labels[fnames], histogram))
+    data_rows = vstack((data_rows, data_row))
     data_rows = data_rows[1:]
     fmt = '%i '
     for i in range(nwords):
@@ -55,10 +52,9 @@ all_features = {}
 codebook_file = CODEBOOK_FILE
 model_file = MODEL_FILE
 #fnames = filename = raw_input('Enter input file name: ')
-fname = 'C:\\Users\\Abdul Moeed\\Documents\\Canopy\\Project\\airplane.jpg'
+fname = 'scorpion.jpg'
 all_features = extractSift(fname)
-for i in fname:
-    all_files_labels[i] = 0  # label is unknown
+all_files_labels[fname] = 4  # label is unknown
 
 print "---------------------"
 print "## loading codebook from " + codebook_file
@@ -80,10 +76,10 @@ writeHistogramsToFile(nclusters,
 
 print "---------------------"
 print "## test data with svm"
-print libsvm.test(HISTOGRAMS_FILE, model_file)
-#y,x=svmutil.svm_read_problem(HISTOGRAMS_FILE)
-#model=svmutil.svm_load_model(model_file)
-#result = svmutil.svm_predict(y,x,model)
-#cat_label = load(open("C:\\Users\\Abdul Moeed\\Documents\\Canopy\\Project\\cat.txt", "rb" ))
-#print cat_label
-#print result[0][0]
+
+y,x=svmutil.svm_read_problem(HISTOGRAMS_FILE)
+model=svmutil.svm_load_model(model_file)
+result = svmutil.svm_predict(y,x,model)
+cat_label = load(open("cat.txt", "rb" ))
+print cat_label
+print result[0][0]
