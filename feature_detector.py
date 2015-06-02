@@ -4,25 +4,16 @@ from glob import glob
 from numpy import zeros, resize, sqrt, histogram, hstack, vstack, savetxt, zeros_like, random
 import scipy.cluster.vq as vq
 from cPickle import dump, HIGHEST_PROTOCOL
-import argparse
 import svmutil
-import libsvm
 
 
 EXTENSIONS = [".jpg", ".bmp", ".png"]
-DATASETPATH = 'C:\\Users\\Abdul Moeed\\Documents\\Canopy\\Project\\dataset_tiny'
+DATASETPATH = 'C:\\Users\\test1\\Desktop\\AI_project-master\\dataset_tiny'
 PRE_ALLOCATION_BUFFER = 1000  # for sift
 HISTOGRAMS_FILE = 'trainingdata.svm'
 K_THRESH = 1  # early stopping threshold for kmeans originally at 1e-5, increased for speedup
 CODEBOOK_FILE = 'codebook.file'
 NUM_SAMPLES=40
-
-
-def parse_arguments():
-    parser = argparse.ArgumentParser(description='train a visual bag of words model')
-    parser.add_argument('-d', help='path to the dataset', required=False, default=DATASETPATH)
-    args = parser.parse_args()
-    return args
 
 
 def get_categories(datasetpath):
@@ -100,11 +91,9 @@ def writeHistogramsToFile(nwords, labels, fnames, all_word_histgrams, features_f
 if __name__ == '__main__':
     print "---------------------"
     print "## loading the images and extracting the sift features"
-    args = parse_arguments()
-    datasetpath = args.d
-    cats = get_categories(datasetpath)
+    cats = get_categories(DATASETPATH)
     ncats = len(cats)
-    print "searching for folders at " + datasetpath
+    print "searching for folders at " + DATASETPATH
     if ncats < 1:
         raise ValueError('Only ' + str(ncats) + ' categories found. Wrong path?')
     print "found following folders / categories:"
@@ -115,7 +104,7 @@ if __name__ == '__main__':
     all_features = {}
     cat_label = {}
     for cat, label in zip(cats, range(ncats)):
-        cat_path = join(datasetpath, cat)
+        cat_path = join(DATASETPATH, cat)
         cat_files = get_imgfiles(cat_path)
         cat_features = extractSift(cat_files)
         all_files = all_files + cat_files
@@ -133,7 +122,7 @@ if __name__ == '__main__':
                                              nclusters,
                                              thresh=K_THRESH)
 
-    with open(datasetpath + CODEBOOK_FILE, 'wb') as f:
+    with open(DATASETPATH + CODEBOOK_FILE, 'wb') as f:
 
         dump(codebook, f, protocol=HIGHEST_PROTOCOL)
 
@@ -146,24 +135,17 @@ if __name__ == '__main__':
 
     print "---------------------"
     print "## write the histograms to file to pass it to the svm"
-    writeHistogramsToFile(nclusters,
-                          all_files_labels,
-                          all_files,
-                          all_word_histgrams,
-                          datasetpath + HISTOGRAMS_FILE)
+    writeHistogramsToFile(nclusters,all_files_labels,all_files,all_word_histgrams,DATASETPATH + HISTOGRAMS_FILE)
 
     print "---------------------"
     print "## train svm"
-    #y,x=svmutil.svm_read_problem(datasetpath + HISTOGRAMS_FILE)
-    #model_file=svmutil.svm_train(y,x)
-    #svmutil.svm_save_model('trainingdata.svm.model', model_file)
-    c, g, rate, model_file = libsvm.grid(datasetpath + HISTOGRAMS_FILE,
-                                         png_filename='grid_res_img_file.png')
-    dump(model_file, open("trainingdata.svm.model", "wb" ))
+    y,x=svmutil.svm_read_problem(DATASETPATH + HISTOGRAMS_FILE)
+    model_file=svmutil.svm_train(y,x)
+    svmutil.svm_save_model('trainingdata.svm.model', model_file)
 
     print "--------------------"
     print "## outputting results"
-    print "codebook file: " + datasetpath + CODEBOOK_FILE
+    print "codebook file: " + DATASETPATH + CODEBOOK_FILE
     print "category      ==>  label"
     for cat in cat_label:
         print '{0:13} ==> {1:6d}'.format(cat, cat_label[cat])
