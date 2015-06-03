@@ -8,13 +8,14 @@ import svmutil
 
 
 EXTENSIONS = [".jpg", ".bmp", ".png"]
-DATASETPATH = 'C:\\Users\\test1\\Desktop\\AI_project-master\\dataset_tiny'
+DATASETPATH = 'D:\\AI_project-master\\dataset'
 PRE_ALLOCATION_BUFFER = 1000  # for sift
 HISTOGRAMS_FILE = 'trainingdata.svm'
 K_THRESH = 1  # early stopping threshold for kmeans originally at 1e-5, increased for speedup
 CODEBOOK_FILE = 'codebook.file'
-NUM_SAMPLES=40
-
+NUM_SAMPLES=10
+NUM_TRANING_SAMPLES=5
+NUM_PYRAMIDS=16
 
 def get_categories(datasetpath):
     cat_paths = [files
@@ -25,10 +26,10 @@ def get_categories(datasetpath):
     return cats
 
 
-def get_imgfiles(path):
+def get_imgfiles(path, num_of_samples):
     all_files = []
     files = glob(path + "/*")
-    for i in xrange(NUM_SAMPLES):
+    for i in xrange(num_of_samples):
         all_files.extend([join(path, basename(files[random.randint(0,len(files),1)]))])
     return all_files
 
@@ -87,7 +88,6 @@ def writeHistogramsToFile(nwords, labels, fnames, all_word_histgrams, features_f
         fmt = fmt + str(i) + ':%f '
     savetxt(features_fname, data_rows, fmt)
 
-
 if __name__ == '__main__':
     print "---------------------"
     print "## loading the images and extracting the sift features"
@@ -103,13 +103,20 @@ if __name__ == '__main__':
     all_files_labels = {}
     all_features = {}
     cat_label = {}
+    training_features = {}
+    training_files = []
+    training_files_labels={}
     for cat, label in zip(cats, range(ncats)):
         cat_path = join(DATASETPATH, cat)
-        cat_files = get_imgfiles(cat_path)
+        cat_files = get_imgfiles(cat_path, NUM_SAMPLES)
         cat_features = extractSift(cat_files)
         all_files = all_files + cat_files
         all_features.update(cat_features)
         cat_label[cat] = label
+        for i in xrange(NUM_TRANING_SAMPLES):
+            training_features.update({cat_files[i]:cat_features[cat_files[i]]});
+            training_files.append(cat_files[i])
+            training_files_labels[cat_files[i]]=label
         for i in cat_files:
             all_files_labels[i] = label
 
@@ -129,13 +136,14 @@ if __name__ == '__main__':
     print "---------------------"
     print "## compute the visual words histograms for each image"
     all_word_histgrams = {}
-    for imagefname in all_features:
-        word_histgram = computeHistograms(codebook, all_features[imagefname])
+    
+    for imagefname in training_features:
+        word_histgram = computeHistograms(codebook, training_features[imagefname])
         all_word_histgrams[imagefname] = word_histgram
 
     print "---------------------"
     print "## write the histograms to file to pass it to the svm"
-    writeHistogramsToFile(nclusters,all_files_labels,all_files,all_word_histgrams,DATASETPATH + HISTOGRAMS_FILE)
+    writeHistogramsToFile(nclusters,training_files_labels,training_files,all_word_histgrams,DATASETPATH + HISTOGRAMS_FILE)
 
     print "---------------------"
     print "## train svm"
@@ -149,4 +157,3 @@ if __name__ == '__main__':
     print "category      ==>  label"
     for cat in cat_label:
         print '{0:13} ==> {1:6d}'.format(cat, cat_label[cat])
-    dump(cat_label, open("cat.txt", "wb" ))
