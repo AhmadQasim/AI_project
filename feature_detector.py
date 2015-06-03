@@ -1,14 +1,14 @@
 from os.path import isdir, basename, join
 import cv2
 from glob import glob
-from numpy import zeros, resize, sqrt, histogram, hstack, vstack, savetxt, zeros_like, random
+from numpy import zeros, resize, sqrt, histogram, hstack, vstack, savetxt, zeros_like, random, array
 import scipy.cluster.vq as vq
 from cPickle import dump, HIGHEST_PROTOCOL
 import svmutil
 
 
 EXTENSIONS = [".jpg", ".bmp", ".png"]
-DATASETPATH = 'D:\\AI_project-master\\dataset'
+DATASETPATH = 'D:\\AI_project-master\\dataset_tiny'
 PRE_ALLOCATION_BUFFER = 1000  # for sift
 HISTOGRAMS_FILE = 'trainingdata.svm'
 K_THRESH = 1  # early stopping threshold for kmeans originally at 1e-5, increased for speedup
@@ -36,17 +36,19 @@ def get_imgfiles(path, num_of_samples):
 
 def extractSift(input_files):
     print "extracting Sift features"
-    all_features_dict = {}
+    all_features_dict = dict()
     for i,fname in enumerate(input_files):
         image = cv2.imread(fname)
         gray= cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+        gray = array(gray)
         sift =cv2.SIFT()
-        kp, descriptors = sift.detectAndCompute(gray,None)
-        print "gathering sift features for", fname,
-        print descriptors.shape
-        all_features_dict[fname] = descriptors
+        all_features_dict[fname]=[]
+        for j in xrange(len(gray)/16-1):
+            for k in xrange(len(gray[0])/16-1):
+                kp, descriptors = sift.detectAndCompute(gray[j*16:j*16+16,k*16:k*16+16],None)
+                if descriptors is not None:
+                    all_features_dict[fname].extend(descriptors.tolist())
     return all_features_dict
-
 
 def dict2numpy(dict):
     nkeys = len(dict)
@@ -54,7 +56,7 @@ def dict2numpy(dict):
     pivot = 0
     for key in dict.keys():
         value = dict[key]
-        nelements = value.shape[0]
+        nelements = len(value)
         while pivot + nelements > array.shape[0]:
             padding = zeros_like(array)
             array = vstack((array, padding))
@@ -135,6 +137,7 @@ if __name__ == '__main__':
 
     print "---------------------"
     print "## compute the visual words histograms for each image"
+    
     all_word_histgrams = {}
     
     for imagefname in training_features:
