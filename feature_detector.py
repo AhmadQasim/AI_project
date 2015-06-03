@@ -16,6 +16,7 @@ CODEBOOK_FILE = 'codebook.file'
 NUM_SAMPLES=10
 NUM_TRANING_SAMPLES=5
 NUM_PYRAMIDS=16
+all_word_histgrams = {}
 
 def get_categories(datasetpath):
     cat_paths = [files
@@ -49,6 +50,27 @@ def extractSift(input_files):
                 if descriptors is not None:
                     all_features_dict[fname].extend(descriptors.tolist())
     return all_features_dict
+    
+def extractSift_training(input_files, codebook):
+    print "extracting Sift features"
+    all_features_dict = dict()
+    for i,fname in enumerate(input_files):
+        image = cv2.imread(fname)
+        gray= cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+        gray = array(gray)
+        sift =cv2.SIFT()
+        all_features_dict[fname]=[]
+        for j in xrange(len(gray)/16-1):
+            for k in xrange(len(gray[0])/16-1):
+                kp, descriptors = sift.detectAndCompute(gray[j*16:j*16+16,k*16:k*16+16],None)
+                if descriptors is not None:
+                    word_histgram = computeHistograms(codebook, descriptors)
+                    all_features_dict[fname].extend(descriptors.tolist())
+                    if fname in all_word_histgrams:
+                        vstack((all_word_histgrams[fname], word_histgram))
+                    else:
+                        all_word_histgrams[fname]=array(word_histgram)
+    return all_features_dict
 
 def dict2numpy(dict):
     nkeys = len(dict)
@@ -77,6 +99,7 @@ def computeHistograms(codebook, descriptors):
 def writeHistogramsToFile(nwords, labels, fnames, all_word_histgrams, features_fname):
     data_rows = zeros(nwords + 1)  # +1 for the category label
     for fname in fnames:
+        print all_word_histgrams[fname]
         histogram = all_word_histgrams[fname]
         if (histogram.shape[0] != nwords):  # scipy deletes empty clusters
             nwords = histogram.shape[0]
@@ -105,9 +128,7 @@ if __name__ == '__main__':
     all_files_labels = {}
     all_features = {}
     cat_label = {}
-    training_features = {}
-    training_files = []
-    training_files_labels={}
+    
     for cat, label in zip(cats, range(ncats)):
         cat_path = join(DATASETPATH, cat)
         cat_files = get_imgfiles(cat_path, NUM_SAMPLES)
@@ -115,10 +136,6 @@ if __name__ == '__main__':
         all_files = all_files + cat_files
         all_features.update(cat_features)
         cat_label[cat] = label
-        for i in xrange(NUM_TRANING_SAMPLES):
-            training_features.update({cat_files[i]:cat_features[cat_files[i]]});
-            training_files.append(cat_files[i])
-            training_files_labels[cat_files[i]]=label
         for i in cat_files:
             all_files_labels[i] = label
 
@@ -130,22 +147,27 @@ if __name__ == '__main__':
     codebook, distortion = vq.kmeans(all_features_array,
                                              nclusters,
                                              thresh=K_THRESH)
-
     with open(DATASETPATH + CODEBOOK_FILE, 'wb') as f:
 
         dump(codebook, f, protocol=HIGHEST_PROTOCOL)
 
     print "---------------------"
     print "## compute the visual words histograms for each image"
-    
-    all_word_histgrams = {}
-    
-    for imagefname in training_features:
-        word_histgram = computeHistograms(codebook, training_features[imagefname])
-        all_word_histgrams[imagefname] = word_histgram
+    training_features = {}
+    training_files = []
+    training_files_labels={}
+    for cat, label in zip(cats, range(ncats)):
+        cat_path = join(DATASETPATH, cat)
+        cat_files = get_imgfiles(cat_path, NUM_TRANING_SAMPLES)
+        cat_features = extractSift_training(cat_files,codebook)
+        training_features.update(cat_features);
+        training_files.append(cat_files)
+        for i in cat_files:
+            training_files_labels[i]=label
 
     print "---------------------"
     print "## write the histograms to file to pass it to the svm"
+    print all_word_histgrams
     writeHistogramsToFile(nclusters,training_files_labels,training_files,all_word_histgrams,DATASETPATH + HISTOGRAMS_FILE)
 
     print "---------------------"
